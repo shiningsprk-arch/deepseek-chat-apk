@@ -20,7 +20,6 @@ export const setupMobile = () => {
     return
   }
 
-  void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {})
   syncStatusBar()
   new MutationObserver(syncStatusBar).observe(document.body, {
     attributes: true,
