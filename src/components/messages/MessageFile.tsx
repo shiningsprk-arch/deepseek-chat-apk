@@ -143,6 +143,10 @@ export const MessageFile = ({
         target="_blank"
         rel="noreferrer"
         title={file.name}
+        onClick={(event) => {
+          event.preventDefault()
+          void openExternal(url, file.name)
+        }}
       >
         {preview}
       </a>
@@ -159,7 +163,7 @@ export const MessageFile = ({
       status={uploading ? 'uploading' : failed ? 'error' : 'done'}
       error={errorText}
       onRetry={retry ?? undefined}
-      onOpen={url && !upload ? () => void openExternal(url) : undefined}
+      onOpen={url && !upload ? () => void openExternal(url, file.name) : undefined}
     />
   )
 }
