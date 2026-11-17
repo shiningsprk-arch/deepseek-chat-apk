@@ -168,9 +168,9 @@ export const AttachmentSheet = ({
       showToast({ key: 'attachmentLimitReached', type: 'error' })
       return
     }
+    // 同步触发文件选择，保留用户手势；随后关闭弹层。
+    onPickFiles()
     onClose()
-    // 等弹层卸载后再触发文件选择，避免部分机型把弹层带回前台。
-    window.setTimeout(onPickFiles, 50)
   }
 
   const allowAccess = async () => {
