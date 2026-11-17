@@ -1,7 +1,7 @@
 import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
-import { openMobileSider, useMobileSider } from './components/sider/mobileSiderState.js'
+import { openMobileSider, closeMobileSider, useMobileSider } from './components/sider/mobileSiderState.js'
 import { applySafeAreaInsets } from './utils/safeArea.js'
 
 const syncStatusBar = () => {
@@ -34,12 +34,12 @@ export const setupMobile = () => {
   window.addEventListener('orientationchange', refreshInsets)
   window.visualViewport?.addEventListener('resize', refreshInsets)
 
-  // 屏幕中部右滑 = 点击菜单，打开会话历史。左右边缘留给系统返回手势，不做拦截。
+  // 屏幕中部右滑打开历史，左滑关闭历史；左右边缘留给系统返回手势。
   let tracking = false
   let startX = 0
   let startY = 0
   const MIN_DISTANCE = 80
-  const MAX_VERTICAL = 50
+  const MAX_VERTICAL = 30
 
   const isHorizontallyScrollable = (target: EventTarget | null): boolean => {
     for (
@@ -58,7 +58,8 @@ export const setupMobile = () => {
   document.addEventListener(
     'touchstart',
     (event) => {
-      if (event.touches.length !== 1 || useMobileSider.getState().open) {
+      tracking = false
+      if (event.touches.length !== 1) {
         return
       }
       if (document.querySelector('[role="dialog"]')) {
@@ -93,12 +94,24 @@ export const setupMobile = () => {
       if (!tracking || event.touches.length !== 1) {
         return
       }
+      // 长按选词或拖动选择手柄时不误触发侧滑。
+      if (window.getSelection()?.toString()) {
+        tracking = false
+        return
+      }
       const touch = event.touches[0]
       const dx = touch.clientX - startX
       const dy = touch.clientY - startY
-      if (dx > MIN_DISTANCE && Math.abs(dy) < MAX_VERTICAL) {
+      if (Math.abs(dy) >= MAX_VERTICAL) {
+        return
+      }
+      const open = useMobileSider.getState().open
+      if (!open && dx > MIN_DISTANCE) {
         tracking = false
         openMobileSider()
+      } else if (open && dx < -MIN_DISTANCE) {
+        tracking = false
+        closeMobileSider()
       }
     },
     { passive: true }
@@ -113,6 +126,10 @@ export const setupMobile = () => {
   void App.addListener('backButton', ({ canGoBack }) => {
     if (document.querySelector('[role="dialog"]')) {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      return
+    }
+    if (useMobileSider.getState().open) {
+      closeMobileSider()
       return
     }
     if (canGoBack) {

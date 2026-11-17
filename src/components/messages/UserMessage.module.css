@@ -38,6 +38,8 @@
   background-color: var(--dsw-specific-bubble);
   white-space: pre-wrap;
   word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 @media not all and (min-width: 440px) {

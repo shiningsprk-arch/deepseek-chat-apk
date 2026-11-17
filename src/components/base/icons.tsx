@@ -222,6 +222,39 @@ export const IconPaperclipOutline16 = () => (
   </svg>
 )
 
+export const IconCameraOutline20 = () => (
+  <svg width={20} height={20} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M3.2 6.4h2.1l1-1.6h7.4l1 1.6h2.1c.88 0 1.6.72 1.6 1.6v7.1c0 .88-.72 1.6-1.6 1.6H3.2c-.88 0-1.6-.72-1.6-1.6V8c0-.88.72-1.6 1.6-1.6Z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+    <circle cx="10" cy="11.1" r="3.1" stroke="currentColor" strokeWidth="1.4" />
+  </svg>
+)
+
+export const IconGalleryOutline20 = () => (
+  <svg width={20} height={20} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect
+      x="2.6"
+      y="3.6"
+      width="14.8"
+      height="12.8"
+      rx="2.2"
+      stroke="currentColor"
+      strokeWidth="1.4"
+    />
+    <circle cx="7.1" cy="8.1" r="1.5" stroke="currentColor" strokeWidth="1.4" />
+    <path
+      d="m3.4 14.1 4.1-4.1 3 3 2.6-2.6 3.9 3.9"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
 export const IconRefreshOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path

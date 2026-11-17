@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version name, for example 0.1.2
+        description: Version name, for example 0.1.3
         required: false
-        default: 0.1.2
+        default: 0.1.3
   push:
     tags:
       - 'v*'
@@ -88,7 +88,7 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            VERSION="${INPUT_VERSION:-0.1.2}"
+            VERSION="${INPUT_VERSION:-0.1.3}"
           fi
           CODE=$(echo "$VERSION" | awk -F. '{printf "%d%02d%02d", $1, $2, $3}')
           echo "name=$VERSION" >> "$GITHUB_OUTPUT"

@@ -82,6 +82,28 @@
   }
 }
 
+.thinkingBody {
+  position: relative;
+}
+
+.thinkingPreview {
+  max-height: 132px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 28px, #000 100%);
+}
+
+.thinkingToggle {
+  display: block;
+  margin: 4px 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--dsw-alias-brand-text);
+  font: var(--dsw-font-markdown-small);
+  cursor: pointer;
+}
+
 .dot {
   position: absolute;
   top: 9px;

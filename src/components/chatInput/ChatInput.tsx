@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   IconGlobeLanguageOutline14,
   IconPaperclipOutline16,
@@ -26,7 +26,8 @@ import { Tooltip } from '../base/Tooltip.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
 import { DragMask, useFileDrop } from './DragMask.js'
 import { showToast } from '../base/toastState.js'
-import { ACCEPT, useUploads } from '../../services/attachments.js'
+import { ACCEPT, MAX_COUNT, useUploads } from '../../services/attachments.js'
+import { AttachmentSheet } from './AttachmentSheet.js'
 import { DraftAttachments } from './DraftAttachments.js'
 import { useVoiceInput } from './useVoiceInput.js'
 import { VoiceButton } from './VoiceButton.js'
@@ -56,6 +57,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const togglesRef = useRef<HTMLDivElement>(null)
+  const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false)
 
   useLayoutEffect(() => {
     const toggles = togglesRef.current
@@ -247,7 +249,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             icon={<IconPaperclipOutline16 />}
             tooltip={t('uploadFile')}
             disabled={importingHistory}
-            onClick={() => ensureApiKey() && fileInputRef.current?.click()}
+            onClick={() => ensureApiKey() && setAttachmentSheetOpen(true)}
           />
           <input
             ref={fileInputRef}
@@ -286,6 +288,13 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         </div>
       </div>
       {dragging ? <DragMask /> : null}
+      <AttachmentSheet
+        open={attachmentSheetOpen}
+        remaining={MAX_COUNT - attachments.length}
+        onClose={() => setAttachmentSheetOpen(false)}
+        onFiles={acceptFiles}
+        onPickFiles={() => fileInputRef.current?.click()}
+      />
     </div>
   )
 }

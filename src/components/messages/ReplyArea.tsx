@@ -1,6 +1,6 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
-import { memo, useEffect, useState, type ReactNode } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   IconBrowseOutline16,
   IconBrowseWarningOutline16,
@@ -65,9 +65,15 @@ export const ReplyArea = memo(function ReplyArea({
   hasResponse: boolean
 }) {
   useTranslate()
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(() => streaming && !hasResponse)
+  const userOverride = useRef(false)
   const titleActive = streaming && !hasResponse
   useTicker(titleActive, 1000)
+  useEffect(() => {
+    if (!userOverride.current && (hasResponse || !streaming)) {
+      setOpen(false)
+    }
+  }, [hasResponse, streaming])
   if (view.steps.length === 0 && !(message.thinking && streaming)) {
     return null
   }
@@ -75,10 +81,19 @@ export const ReplyArea = memo(function ReplyArea({
   const thinking = message.thinking ?? view.steps.some((step) => step.type === 'thinking')
   const title = thinking ? getAreaTitle(view, streaming, Date.now(), hasResponse) : null
   const stopped = !streaming && !hasResponse
+  const markUserOverride = () => {
+    userOverride.current = true
+  }
   return (
     <div className={styles.area}>
       {title ? (
-        <div className={styles.title} onClick={() => setOpen((value) => !value)}>
+        <div
+          className={styles.title}
+          onClick={() => {
+            markUserOverride()
+            setOpen((value) => !value)
+          }}
+        >
           <span className={clsx(styles.titleIcon, stopped && styles.stoppedIcon)}>
             <IconThinkOutline16 />
           </span>
@@ -95,6 +110,8 @@ export const ReplyArea = memo(function ReplyArea({
               message={message}
               sources={view.sources}
               streaming={streaming}
+              thinkingPhase={streaming && !hasResponse}
+              onUserInteract={markUserOverride}
               isLast={index === view.steps.length - 1}
             />
           ))}
@@ -114,12 +131,16 @@ const StepItem = ({
   message,
   sources,
   streaming,
+  thinkingPhase,
+  onUserInteract,
   isLast,
 }: {
   step: Step
   message: AssistantMessage
   sources: Source[]
   streaming: boolean
+  thinkingPhase: boolean
+  onUserInteract: () => void
   isLast: boolean
 }) => {
   switch (step.type) {
@@ -129,11 +150,12 @@ const StepItem = ({
         streaming && lastBlock?.startedAt !== undefined && lastBlock.endedAt === undefined
       return (
         <ContentItem isLast={isLast} active={thinking}>
-          <Markdown
+          <ThinkingContent
             content={step.blocks.map((block) => block.thinking).join('')}
             loading={thinking}
+            preview={thinkingPhase}
+            onUserInteract={onUserInteract}
             cacheKey={`${message.id}-${step.key}`}
-            disableLink
           />
         </ContentItem>
       )
@@ -180,6 +202,71 @@ const ContentItem = ({
     {children}
   </div>
 )
+
+/** 思考内容：流式时只露一小节并跟随最新内容，答案开始后由外层整体折叠。 */
+const ThinkingContent = ({
+  content,
+  loading,
+  preview,
+  onUserInteract,
+  cacheKey,
+}: {
+  content: string
+  loading: boolean
+  preview: boolean
+  onUserInteract: () => void
+  cacheKey: string
+}) => {
+  const t = useTranslate()
+  const [expanded, setExpanded] = useState(false)
+  const [overflowing, setOverflowing] = useState(false)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const stickToBottom = useRef(true)
+
+  useLayoutEffect(() => {
+    const body = bodyRef.current
+    if (!body) {
+      return
+    }
+    if (preview && !expanded) {
+      setOverflowing(body.scrollHeight > body.clientHeight + 4)
+      if (stickToBottom.current) {
+        body.scrollTop = body.scrollHeight
+      }
+    }
+  }, [content, preview, expanded])
+
+  return (
+    <>
+      <div
+        ref={bodyRef}
+        className={clsx(styles.thinkingBody, preview && !expanded && styles.thinkingPreview)}
+        onScroll={() => {
+          const body = bodyRef.current
+          if (body) {
+            stickToBottom.current =
+              body.scrollHeight - body.scrollTop - body.clientHeight < 24
+          }
+        }}
+      >
+        <Markdown content={content} loading={loading} cacheKey={cacheKey} disableLink />
+      </div>
+      {preview && (overflowing || expanded) ? (
+        <button
+          type="button"
+          className={styles.thinkingToggle}
+          onClick={() => {
+            onUserInteract()
+            stickToBottom.current = true
+            setExpanded((value) => !value)
+          }}
+        >
+          {expanded ? t('thinkingCollapse') : t('thinkingExpand')}
+        </button>
+      ) : null}
+    </>
+  )
+}
 
 /** 搜索：普通搜索为「已阅读 N 个网页」，边想边搜为「搜索到 N 个网页」，点击打开搜索结果 */
 const SearchRow = ({

@@ -6,6 +6,7 @@ import { mathFromMarkdown } from 'mdast-util-math'
 import { gfm } from 'micromark-extension-gfm'
 import { math } from 'micromark-extension-llm-math'
 import type { Source } from '../chat/view.js'
+import { normalizeMath } from './normalizeMath.js'
 
 /** 正文里的 [citation:N]，已换成对应来源 */
 export interface CitationNode extends MdAstNode {
@@ -35,7 +36,8 @@ export function toMdAst(
   input: string,
   { sources, disableLink }: { sources: Source[] | undefined; disableLink: boolean }
 ): Root {
-  const ast = fromMarkdown(input, {
+  const normalized = normalizeMath(input)
+  const ast = fromMarkdown(normalized, {
     extensions: [
       // codeIndented 语法导致有前导空格的列表无法正常渲染
       { ...gfm(), disable: { null: ['codeIndented'] } },
@@ -57,7 +59,8 @@ export function toMdAst(
       { ignore: ['linkReference'] }
     )
   }
-  const raw = (node: Nodes) => input.slice(node.position?.start.offset, node.position?.end.offset)
+  const raw = (node: Nodes) =>
+    normalized.slice(node.position?.start.offset, node.position?.end.offset)
   // 先处理子节点，再按需把当前节点换成若干节点
   const simplify = (node: Nodes): Nodes[] => {
     if ('children' in node) {

@@ -10,8 +10,28 @@ const subscribe = (onChange: () => void) => {
 
 export const useIsMobile = () => useSyncExternalStore(subscribe, () => query.matches)
 
+const isSelectingText = (): boolean => {
+  const selection = window.getSelection()
+  if (!selection || selection.isCollapsed) {
+    return false
+  }
+  const anchor = selection.anchorNode
+  const element = anchor instanceof Element ? anchor : anchor?.parentElement
+  return Boolean(element?.closest('.ds-markdown, .ds-selectable'))
+}
+
 const preventPageScroll = (event: TouchEvent) => {
   if (event.touches.length !== 1) {
+    return
+  }
+  // 正在拖动文本选择手柄时不要拦截，否则无法扩选。
+  if (isSelectingText()) {
+    return
+  }
+  if (
+    event.target instanceof Element &&
+    event.target.closest('.ds-markdown, .ds-selectable')
+  ) {
     return
   }
   for (
