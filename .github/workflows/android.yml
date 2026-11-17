@@ -1,0 +1,145 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version name, for example 0.1.1
+        required: false
+        default: 0.1.1
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6.1.1
+        with:
+          version: 12.6.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check types
+        run: pnpm type
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Ensure safety_check stays disabled
+        run: |
+          if grep -rn "safety_check" src; then
+            echo "::error::safety_check must not be sent with requests"
+            exit 1
+          fi
+
+      - name: Build web assets
+        run: pnpm build
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p android/app
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${INPUT_VERSION:-0.1.1}"
+          fi
+          CODE=$(echo "$VERSION" | awk -F. '{printf "%d%02d%02d", $1, $2, $3}')
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Building version $VERSION ($CODE)"
+
+      - name: Build signed release APK
+        env:
+          KEYSTORE_FILE: release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleRelease --no-daemon --stacktrace \
+            -PversionName="${{ steps.version.outputs.name }}" \
+            -PversionCode="${{ steps.version.outputs.code }}"
+
+      - name: Verify signature
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | tee signature.txt
+
+      - name: Rename APK and checksum
+        env:
+          VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk "deepseek-chat-${VERSION}.apk"
+          sha256sum "deepseek-chat-${VERSION}.apk" | tee sha256.txt
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: deepseek-chat-apk-${{ steps.version.outputs.name }}
+          path: |
+            deepseek-chat-*.apk
+            signature.txt
+            sha256.txt
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" \
+              --title "DeepSeek Chat $VERSION" \
+              --notes "个人自用构建，未开启 high 级内容审核。签名证书指纹见 signature.txt。"
+          fi
+          gh release upload "$GITHUB_REF_NAME" \
+            "deepseek-chat-${VERSION}.apk" signature.txt sha256.txt --clobber
