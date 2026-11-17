@@ -15,8 +15,8 @@
 推送到 `v*` 标签或手动触发 `Build Android APK` 工作流：
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 工作流会依次执行类型检查、lint、Web 构建、Capacitor 同步、Gradle 签名打包、`apksigner` 验签，并上传 APK 与签名指纹。标签构建会自动创建 GitHub Release。
